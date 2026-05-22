@@ -45,7 +45,7 @@ func (c *cache) getPage(page int) ([]Release, bool) {
 	return releases, ok
 }
 
-func (c *cache) setPage(page int, releases []Release) {
+func (c *cache) setPage(page int, releases []Release) []Release {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -65,6 +65,8 @@ func (c *cache) setPage(page int, releases []Release) {
 	if page == 0 {
 		c.createdAt = time.Now()
 	}
+
+	return stored
 }
 
 func (c *cache) resolveImage(id string) (string, bool) {

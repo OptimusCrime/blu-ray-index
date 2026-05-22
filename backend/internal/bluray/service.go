@@ -97,8 +97,7 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 		result = append(result, r)
 	}
 
-	s.cache.setPage(page, result)
-	return result, nil
+	return s.cache.setPage(page, result), nil
 }
 
 func (s *Service) ResolveImage(id string) (string, bool) {
