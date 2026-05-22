@@ -1,7 +1,6 @@
 // Package bluray provides scraping and serving of Blu-ray release data.
 package bluray
 
-// Release represents a single Blu-ray release with all scraped metadata.
 type Release struct {
 	ProductID      string   `json:"productId"`
 	URL            string   `json:"url"`
@@ -19,7 +18,6 @@ type Release struct {
 	ImageID        string   `json:"imageId,omitempty"`
 }
 
-// listingEntry holds the minimal data extracted from the listing page.
 type listingEntry struct {
 	productID      string
 	url            string

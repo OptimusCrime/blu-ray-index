@@ -15,20 +15,26 @@ func TestCacheSetPageAndResolveImage(t *testing.T) {
 
 	c.setPage(0, releases)
 
-	// ImageURL should be cleared and ImageID assigned for the release that had a URL.
-	if releases[0].ImageURL != "" {
-		t.Error("ImageURL should be cleared after setPage")
+	cached, ok := c.getPage(0)
+	if !ok {
+		t.Fatal("expected cache hit after setPage")
 	}
-	if releases[0].ImageID == "" {
-		t.Error("ImageID should be set after setPage")
+
+	if cached[0].ImageURL != "" {
+		t.Error("ImageURL should be cleared in cached entry")
 	}
-	// Release without image should remain unchanged.
-	if releases[1].ImageID != "" {
+	if cached[0].ImageID == "" {
+		t.Error("ImageID should be set in cached entry")
+	}
+	if cached[1].ImageID != "" {
 		t.Error("ImageID should not be set for release with no image")
 	}
 
-	// resolveImage should return the original URL.
-	url, ok := c.resolveImage(releases[0].ImageID)
+	if releases[0].ImageURL != "https://images.static-bluray.com/a.jpg" {
+		t.Error("setPage should not mutate the caller's slice")
+	}
+
+	url, ok := c.resolveImage(cached[0].ImageID)
 	if !ok {
 		t.Fatal("resolveImage returned not found")
 	}
@@ -62,18 +68,15 @@ func TestCacheTTLFlushOnPageZero(t *testing.T) {
 	c.setPage(0, []Release{{Title: "Old Release"}})
 	c.setPage(1, []Release{{Title: "Page 1 Release"}})
 
-	// Backdate createdAt so TTL is expired.
 	c.mu.Lock()
 	c.createdAt = time.Now().Add(-(cacheTTL + time.Second))
 	c.mu.Unlock()
 
-	// Requesting page 0 after TTL should flush and return a miss.
 	_, ok := c.getPage(0)
 	if ok {
 		t.Fatal("expected cache miss for page 0 after TTL expiry")
 	}
 
-	// Page 1 should also be gone after flush.
 	_, ok = c.getPage(1)
 	if ok {
 		t.Fatal("expected page 1 to be flushed after TTL expiry")
@@ -84,7 +87,6 @@ func TestCacheTTLNotFlushBeforeExpiry(t *testing.T) {
 	c := newCache()
 	c.setPage(0, []Release{{Title: "Fresh Release"}})
 
-	// TTL not expired — page 0 should still be a hit.
 	cached, ok := c.getPage(0)
 	if !ok {
 		t.Fatal("expected cache hit for page 0 within TTL")

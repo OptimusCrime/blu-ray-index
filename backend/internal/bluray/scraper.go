@@ -6,6 +6,7 @@ import (
 	gohtml "html"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,12 +57,12 @@ var (
 )
 
 type scraper struct {
-	http *http.Client
+	client *http.Client
 }
 
 func newScraper() *scraper {
 	return &scraper{
-		http: &http.Client{Timeout: 30 * time.Second},
+		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -73,7 +74,7 @@ func (s *scraper) get(ctx context.Context, url string) (*goquery.Document, error
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
-	resp, err := s.http.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("bluray: GET %s: %w", url, err)
 	}
@@ -98,8 +99,7 @@ func (s *scraper) get(ctx context.Context, url string) (*goquery.Document, error
 	return doc, nil
 }
 
-// fetchListingPage retrieves the cover-image grid from one listing page.
-// Each entry includes the Blu-ray release date derived from the preceding h3 header.
+// Release dates are derived from the preceding h3 date headers, not from each entry directly.
 func (s *scraper) fetchListingPage(ctx context.Context, page int) ([]listingEntry, error) {
 	url := baseListingURL
 	if page > 0 {
@@ -133,10 +133,9 @@ func (s *scraper) fetchListingPage(ctx context.Context, page int) ([]listingEntr
 			return
 		}
 
-		// Extract and strip the production year "(NNNN)" from the listing title attribute.
 		productionYear := 0
 		if m := listingYearRe.FindStringSubmatch(titleAttr); len(m) == 2 {
-			fmt.Sscanf(m[1], "%d", &productionYear)
+			productionYear, _ = strconv.Atoi(m[1])
 		}
 		title := strings.TrimSpace(listingYearRe.ReplaceAllString(titleAttr, ""))
 
@@ -158,7 +157,6 @@ func (s *scraper) fetchListingPage(ctx context.Context, page int) ([]listingEntr
 	return entries, nil
 }
 
-// fetchDetailPage retrieves the full metadata for a single Blu-ray release.
 func (s *scraper) fetchDetailPage(ctx context.Context, entry listingEntry) (*Release, error) {
 	doc, err := s.get(ctx, entry.url)
 	if err != nil {
@@ -174,7 +172,6 @@ func (s *scraper) fetchDetailPage(ctx context.Context, entry listingEntry) (*Rel
 		Genres:      []string{},
 	}
 
-	// Release year from the release date header (e.g., "May 12, 2026" → 2026).
 	release.ReleaseYear = parseYearFromDate(entry.releaseDate)
 	// Carry forward the production year parsed from the listing title attribute;
 	// the detail-page subheading grey may refine it below (handles year ranges).
@@ -219,7 +216,7 @@ func (s *scraper) fetchDetailPage(ctx context.Context, entry listingEntry) (*Rel
 			if m[2] != "" {
 				yr = m[2]
 			}
-			fmt.Sscanf(yr, "%d", &release.ProductionYear)
+			release.ProductionYear, _ = strconv.Atoi(yr)
 		}
 	})
 
@@ -230,7 +227,6 @@ func (s *scraper) fetchDetailPage(ctx context.Context, entry listingEntry) (*Rel
 		}
 	})
 
-	// Description from #movie_info.
 	if info := doc.Find("#movie_info").First(); info.Length() > 0 {
 		release.Description = extractDescription(info)
 	}
@@ -252,7 +248,6 @@ func extractDescription(info *goquery.Selection) string {
 		return ""
 	}
 
-	// Cut at the start of the attribution section.
 	for _, marker := range []string{"Director:", "Writer:", "Starring:"} {
 		if idx := strings.Index(html, marker); idx >= 0 {
 			html = html[:idx]
@@ -271,7 +266,6 @@ func extractDescription(info *goquery.Selection) string {
 
 	if cutAt >= 0 {
 		html = html[cutAt:]
-		// Advance past the rest of the closing tag line.
 		if nl := strings.Index(html, "\n"); nl >= 0 {
 			html = html[nl+1:]
 		}
@@ -287,11 +281,9 @@ func extractDescription(info *goquery.Selection) string {
 	// that follows the h3; strip it.
 	text = descPrefixYearRe.ReplaceAllString(text, "")
 	text = strings.TrimSpace(text)
-	// Decode any remaining HTML entities (e.g. &#39; → ').
 	return gohtml.UnescapeString(text)
 }
 
-// stripTags removes all HTML tags from s and collapses whitespace.
 func stripTags(s string) string {
 	var b strings.Builder
 	inTag := false
@@ -310,9 +302,7 @@ func stripTags(s string) string {
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
-// extractOriginalTitle parses the parenthetical from a page <title> and returns
-// the original title if one is present. The parenthetical may be pipe-separated,
-// mixing original title with edition qualifiers (e.g. "Leák | Standard Edition").
+// The parenthetical may be pipe-separated, mixing original title with edition qualifiers (e.g. "Leák | Standard Edition").
 func extractOriginalTitle(raw string) string {
 	parts := strings.Split(raw, " | ")
 	var titleParts []string
@@ -345,8 +335,7 @@ func parseYearFromDate(s string) int {
 		if m == "" {
 			return 0
 		}
-		year := 0
-		fmt.Sscanf(m, "%d", &year)
+		year, _ := strconv.Atoi(m)
 		return year
 	}
 	return t.Year()

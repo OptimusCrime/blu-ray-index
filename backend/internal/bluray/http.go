@@ -14,13 +14,11 @@ import (
 	"github.com/OptimusCrime/blu-ray-index/backend/internal/resterr"
 )
 
-// Handler serves HTTP requests for Blu-ray release data.
 type Handler struct {
 	svc    *Service
 	imgCli *http.Client
 }
 
-// NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{
 		svc:    svc,
@@ -28,7 +26,6 @@ func NewHandler(svc *Service) *Handler {
 	}
 }
 
-// Releases handles GET /api/releases?page=N
 func (h *Handler) Releases(w http.ResponseWriter, r *http.Request) {
 	page := 0
 	if p := r.URL.Query().Get("page"); p != "" {
@@ -54,9 +51,7 @@ func (h *Handler) Releases(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, releases)
 }
 
-// CoverImage handles GET /api/cover-image/{id} and proxies the cover image
-// from blu-ray.com. The hex ID is resolved to an upstream URL via the image
-// cache, so clients never supply or see the raw upstream URL.
+// The hex ID is resolved to an upstream URL via the image cache so clients never see the raw upstream URL.
 func (h *Handler) CoverImage(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {

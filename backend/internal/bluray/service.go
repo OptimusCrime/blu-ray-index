@@ -13,13 +13,11 @@ const (
 	maxPage           = 20
 )
 
-// Service fetches and returns Blu-ray release data.
 type Service struct {
 	scraper *scraper
 	cache   *cache
 }
 
-// New creates a new Service.
 func New() *Service {
 	return &Service{
 		scraper: newScraper(),
@@ -43,9 +41,17 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 
 	currentYear := time.Now().Year()
 
+	// isRecentEnough returns true when year is unknown (0) or within the
+	// allowed window. Applied twice: once to skip listing entries whose
+	// listing-page year is clearly old, and again after the detail fetch
+	// because the detail page may refine the year (e.g. from a year range).
+	isRecentEnough := func(year int) bool {
+		return year == 0 || year >= currentYear-1
+	}
+
 	var filtered []listingEntry
 	for _, e := range entries {
-		if e.productionYear == 0 || e.productionYear >= currentYear-1 {
+		if isRecentEnough(e.productionYear) {
 			filtered = append(filtered, e)
 		}
 	}
@@ -85,7 +91,7 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 		if errs[i] != nil {
 			continue
 		}
-		if r.ProductionYear != 0 && r.ProductionYear < currentYear-1 {
+		if !isRecentEnough(r.ProductionYear) {
 			continue
 		}
 		result = append(result, r)
@@ -95,7 +101,6 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 	return result, nil
 }
 
-// ResolveImage returns the upstream cover image URL for the given hex ID.
 func (s *Service) ResolveImage(id string) (string, bool) {
 	return s.cache.resolveImage(id)
 }

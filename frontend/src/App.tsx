@@ -1,45 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import { fetchReleases } from "./api";
-import type { Release } from "./api";
+import { useReleases } from "./hooks/useReleases";
 import { ReleaseCard } from "./components/ReleaseCard";
 import "./App.css";
 
 export default function App() {
-  const [releases, setReleases] = useState<Release[]>([]);
-  const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-
-  const loadPage = useCallback(async (pageNum: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchReleases(pageNum);
-      if (pageNum === 0) {
-        setReleases(data);
-      } else {
-        setReleases((prev) => [...prev, ...data]);
-      }
-      if (data.length === 0) {
-        setHasMore(false);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPage(0);
-  }, [loadPage]);
-
-  const loadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    loadPage(nextPage);
-  };
+  const { releases, loading, error, hasMore, loadMore, retry } = useReleases();
 
   return (
     <div className="app">
@@ -51,7 +15,7 @@ export default function App() {
         {error && (
           <div className="error-banner">
             <p>{error}</p>
-            <button onClick={() => loadPage(page)}>Retry</button>
+            <button onClick={retry}>Retry</button>
           </div>
         )}
 
