@@ -38,7 +38,7 @@ func main() {
 	}))
 
 	r.Get("/api/releases", handler.Releases)
-	r.Get("/api/image", handler.Image)
+	r.Get("/api/cover-image/{id}", handler.CoverImage)
 
 	srv := &http.Server{
 		Addr:         ":" + port,

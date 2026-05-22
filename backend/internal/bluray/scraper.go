@@ -27,10 +27,19 @@ var (
 	ratedRe = regexp.MustCompile(`Rated\s+(\S+)`)
 
 	// Matches the production year "(NNNN)" suffix in listing title attributes.
-	listingYearRe = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
+	// Group 1 captures the year digits.
+	listingYearRe = regexp.MustCompile(`\s*\((\d{4})\)\s*$`)
+
+	// Matches the production year (or range) between pipes in the subheading grey,
+	// e.g. "| 1999 |" or "| 1990-1993 |". Group 1 is the start year, group 2 is
+	// the optional end year of a range.
+	productionYearRe = regexp.MustCompile(`\|\s*(\d{4})(?:-(\d{4}))?\s*\|`)
 
 	// Matches the year appended to the description prefix by the h3 spacer, e.g. " (1996)".
 	descPrefixYearRe = regexp.MustCompile(`^\s*\(\d{4}\)\s*`)
+
+	// Fallback used by parseYearFromDate when time.Parse fails.
+	yearFallbackRe = regexp.MustCompile(`\b(\d{4})\b`)
 
 	// Common non-title qualifiers that appear in the page <title> parenthetical.
 	editionKeywords = []string{
@@ -124,7 +133,11 @@ func (s *scraper) fetchListingPage(ctx context.Context, page int) ([]listingEntr
 			return
 		}
 
-		// Strip the production year "(NNNN)" from the listing title attribute.
+		// Extract and strip the production year "(NNNN)" from the listing title attribute.
+		productionYear := 0
+		if m := listingYearRe.FindStringSubmatch(titleAttr); len(m) == 2 {
+			fmt.Sscanf(m[1], "%d", &productionYear)
+		}
 		title := strings.TrimSpace(listingYearRe.ReplaceAllString(titleAttr, ""))
 
 		imageURL := ""
@@ -133,11 +146,12 @@ func (s *scraper) fetchListingPage(ctx context.Context, page int) ([]listingEntr
 		}
 
 		entries = append(entries, listingEntry{
-			productID:   productID,
-			url:         href,
-			title:       title,
-			releaseDate: currentDate,
-			imageURL:    imageURL,
+			productID:      productID,
+			url:            href,
+			title:          title,
+			releaseDate:    currentDate,
+			productionYear: productionYear,
+			imageURL:       imageURL,
 		})
 	})
 
@@ -157,10 +171,14 @@ func (s *scraper) fetchDetailPage(ctx context.Context, entry listingEntry) (*Rel
 		Title:       entry.title,
 		ReleaseDate: entry.releaseDate,
 		ImageURL:    entry.imageURL,
+		Genres:      []string{},
 	}
 
 	// Release year from the release date header (e.g., "May 12, 2026" → 2026).
 	release.ReleaseYear = parseYearFromDate(entry.releaseDate)
+	// Carry forward the production year parsed from the listing title attribute;
+	// the detail-page subheading grey may refine it below (handles year ranges).
+	release.ProductionYear = entry.productionYear
 
 	// Original title from the HTML <title> tag, e.g.:
 	// "Rider on the Rain 4K Blu-ray (Le passager de la pluie)"
@@ -192,6 +210,16 @@ func (s *scraper) fetchDetailPage(ctx context.Context, entry listingEntry) (*Rel
 
 		if m := ratedRe.FindStringSubmatch(sel.Text()); len(m) == 2 {
 			release.Rating = "Rated " + m[1]
+		}
+
+		// Production year or range between pipes (e.g. "| 1999 |" or "| 1990-1993 |").
+		// For ranges, use the end year so a recent series finale is not excluded.
+		if m := productionYearRe.FindStringSubmatch(sel.Text()); len(m) == 3 {
+			yr := m[1]
+			if m[2] != "" {
+				yr = m[2]
+			}
+			fmt.Sscanf(yr, "%d", &release.ProductionYear)
 		}
 	})
 
@@ -313,8 +341,7 @@ func isEditionQualifier(s string) bool {
 func parseYearFromDate(s string) int {
 	t, err := time.Parse("January 2, 2006", s)
 	if err != nil {
-		re := regexp.MustCompile(`\b(\d{4})\b`)
-		m := re.FindString(s)
+		m := yearFallbackRe.FindString(s)
 		if m == "" {
 			return 0
 		}

@@ -1,5 +1,5 @@
 import type { Release } from "../api";
-import { imageProxyUrl } from "../api";
+import { coverImageUrl } from "../api";
 
 interface Props {
   release: Release;
@@ -9,9 +9,9 @@ export function ReleaseCard({ release }: Props) {
   return (
     <article className="release-card">
       <a href={release.url} target="_blank" rel="noopener noreferrer" className="cover-link">
-        {release.imageUrl ? (
+        {release.imageId ? (
           <img
-            src={imageProxyUrl(release.imageUrl)}
+            src={coverImageUrl(release.imageId)}
             alt={release.title}
             className="cover-image"
             loading="lazy"
@@ -39,7 +39,7 @@ export function ReleaseCard({ release }: Props) {
           )}
         </div>
 
-        {release.genres && release.genres.length > 0 && (
+        {release.genres.length > 0 && (
           <div className="genres">
             {release.genres.map((g) => (
               <span key={g} className="genre-tag">

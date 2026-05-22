@@ -7,12 +7,13 @@ export interface Release {
   originalTitle?: string;
   releaseDate: string;
   releaseYear: number;
+  productionYear: number;
   studio: string;
   runtime: string;
   rating: string;
   description: string;
   genres: string[];
-  imageUrl: string;
+  imageId?: string;
 }
 
 export async function fetchReleases(page: number): Promise<Release[]> {
@@ -24,6 +25,6 @@ export async function fetchReleases(page: number): Promise<Release[]> {
   return (data ?? []) as Release[];
 }
 
-export function imageProxyUrl(url: string): string {
-  return `${BASE_URL}/api/image?url=${encodeURIComponent(url)}`;
+export function coverImageUrl(id: string): string {
+  return `${BASE_URL}/api/cover-image/${id}`;
 }

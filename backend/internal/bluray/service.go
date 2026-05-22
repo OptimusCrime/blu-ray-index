@@ -8,22 +8,34 @@ import (
 	"time"
 )
 
-const detailConcurrency = 3
+const (
+	detailConcurrency = 3
+	maxPage           = 20
+)
 
 // Service fetches and returns Blu-ray release data.
 type Service struct {
 	scraper *scraper
+	cache   *cache
 }
 
 // New creates a new Service.
 func New() *Service {
-	return &Service{scraper: newScraper()}
+	return &Service{
+		scraper: newScraper(),
+		cache:   newCache(),
+	}
 }
 
-// Releases returns all releases from the given listing page, fetching detail
-// pages with limited concurrency. Only releases from the current year or the
-// previous year are included.
+// Releases returns all releases from the given listing page. Results are
+// served from the in-memory cache when available. Page 0 acts as the cache
+// gatekeeper: requesting it after the TTL expires flushes everything and
+// triggers a fresh scrape.
 func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
+	if cached, ok := s.cache.getPage(page); ok {
+		return cached, nil
+	}
+
 	entries, err := s.scraper.fetchListingPage(ctx, page)
 	if err != nil {
 		return nil, fmt.Errorf("fetch listing page %d: %w", page, err)
@@ -31,12 +43,9 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 
 	currentYear := time.Now().Year()
 
-	// Pre-filter: skip entries whose release date is outside the allowed window
-	// before firing off expensive detail-page requests.
 	var filtered []listingEntry
 	for _, e := range entries {
-		year := parseYearFromDate(e.releaseDate)
-		if year >= currentYear-1 {
+		if e.productionYear == 0 || e.productionYear >= currentYear-1 {
 			filtered = append(filtered, e)
 		}
 	}
@@ -66,14 +75,22 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 
 	wg.Wait()
 
-	// Collect successful results in original order.
 	var result []Release
 	for i, r := range releases {
 		if errs[i] != nil {
 			continue
 		}
+		if r.ProductionYear != 0 && r.ProductionYear < currentYear-1 {
+			continue
+		}
 		result = append(result, r)
 	}
 
+	s.cache.setPage(page, result)
 	return result, nil
+}
+
+// ResolveImage returns the upstream cover image URL for the given hex ID.
+func (s *Service) ResolveImage(id string) (string, bool) {
+	return s.cache.resolveImage(id)
 }
