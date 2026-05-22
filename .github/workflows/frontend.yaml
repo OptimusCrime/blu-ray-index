@@ -1,0 +1,34 @@
+name: blu-ray-index-frontend
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build
+        run: cd frontend && npm run build:prod
+
+      - name: Build and publish frontend to Registry
+        uses: elgohr/Publish-Docker-Github-Action@v5
+        with:
+          registry: https://ghcr.io
+          name: optimuscrime/blu-ray-index/blu-ray-index-frontend
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+          dockerfile: docker_nginx.Dockerfile
+          tags: "latest"

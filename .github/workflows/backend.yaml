@@ -1,0 +1,25 @@
+name: blu-ray-index-backend
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and publish go to Registry
+        uses: elgohr/Publish-Docker-Github-Action@v5
+        env:
+          ENV: prod
+        with:
+          registry: https://ghcr.io
+          name: optimuscrime/blu-ray-index/blu-ray-index-go
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+          dockerfile: docker_go.Dockerfile
+          tags: "latest"

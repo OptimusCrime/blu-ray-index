@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8199";
+const BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "" : "http://localhost:8140");
 
 export interface Release {
   productId: string;

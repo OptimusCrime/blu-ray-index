@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,7 +20,12 @@ import (
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8199"
+		port = "8140"
+	}
+
+	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost:5173,http://localhost:5174"
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -32,7 +38,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:5174"},
+		AllowedOrigins: strings.Split(allowedOrigins, ","),
 		AllowedMethods: []string{"GET", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Content-Type"},
 	}))

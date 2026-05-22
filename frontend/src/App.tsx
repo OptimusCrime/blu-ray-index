@@ -7,7 +7,7 @@ import "./App.css";
 export default function App() {
   const [releases, setReleases] = useState<Release[]>([]);
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 

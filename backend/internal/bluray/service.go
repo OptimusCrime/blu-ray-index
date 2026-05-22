@@ -60,7 +60,12 @@ func (s *Service) Releases(ctx context.Context, page int) ([]Release, error) {
 		wg.Add(1)
 		go func(idx int, e listingEntry) {
 			defer wg.Done()
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				errs[idx] = ctx.Err()
+				return
+			}
 			defer func() { <-sem }()
 
 			r, err := s.scraper.fetchDetailPage(ctx, e)

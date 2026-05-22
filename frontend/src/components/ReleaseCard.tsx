@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Release } from "../api";
 import { coverImageUrl } from "../api";
 
@@ -6,15 +7,18 @@ interface Props {
 }
 
 export function ReleaseCard({ release }: Props) {
+  const [imgError, setImgError] = useState(false);
+
   return (
     <article className="release-card">
       <a href={release.url} target="_blank" rel="noopener noreferrer" className="cover-link">
-        {release.imageId ? (
+        {release.imageId && !imgError ? (
           <img
             src={coverImageUrl(release.imageId)}
             alt={release.title}
             className="cover-image"
             loading="lazy"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="cover-placeholder" />
