@@ -15,7 +15,7 @@ func TestReleasesHandlerPageValidation(t *testing.T) {
 	}{
 		{"page=abc", http.StatusBadRequest},
 		{"page=-1", http.StatusBadRequest},
-		{"page=21", http.StatusBadRequest}, // exceeds maxPage
+		{"page=151", http.StatusBadRequest}, // exceeds maxPage
 	}
 
 	for _, tc := range tests {

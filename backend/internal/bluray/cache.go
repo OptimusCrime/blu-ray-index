@@ -23,7 +23,6 @@ func newCache() *cache {
 	}
 }
 
-// getPage returns cached releases for the given page.
 // When page 0 is requested and the TTL has elapsed, the entire cache is flushed
 // and a miss is returned so the caller re-scrapes from scratch.
 func (c *cache) getPage(page int) ([]Release, bool) {
@@ -76,7 +75,7 @@ func (c *cache) resolveImage(id string) (string, bool) {
 	return url, ok
 }
 
-// flush resets all cache state. Must be called with c.mu held.
+// Must be called with c.mu held.
 func (c *cache) flush() {
 	c.createdAt = time.Time{}
 	c.pages = make(map[int][]Release)

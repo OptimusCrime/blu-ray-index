@@ -35,7 +35,7 @@ export function ReleaseCard({ release }: Props) {
 
         <div className="release-meta">
           {release.studio && <span>{release.studio}</span>}
-          {release.releaseYear > 0 && <span>{release.releaseYear}</span>}
+          {release.productionYear > 0 && <span>{release.productionYear}</span>}
           {release.runtime && <span>{release.runtime}</span>}
           {release.rating && <span>{release.rating}</span>}
           {release.releaseDate && (

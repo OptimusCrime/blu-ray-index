@@ -17,12 +17,3 @@ type Release struct {
 	ImageURL       string   `json:"-"`
 	ImageID        string   `json:"imageId,omitempty"`
 }
-
-type listingEntry struct {
-	productID      string
-	url            string
-	title          string
-	releaseDate    string
-	productionYear int
-	imageURL       string
-}

@@ -10,8 +10,6 @@ import (
 	"github.com/OptimusCrime/blu-ray-index/backend/internal/resterr"
 )
 
-// JSON writes v as a JSON response. If v is a resterr.Resterr, the appropriate
-// HTTP status code and error message are written instead.
 func JSON(w http.ResponseWriter, r *http.Request, v any) {
 	w.Header().Set("Content-Type", "application/json")
 
