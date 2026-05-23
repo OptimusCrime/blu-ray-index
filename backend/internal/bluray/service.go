@@ -10,7 +10,7 @@ import (
 
 const (
 	detailConcurrency = 3
-	maxPage           = 20
+	maxPage           = 150
 )
 
 type Service struct {
