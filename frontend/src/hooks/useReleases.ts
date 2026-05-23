@@ -6,7 +6,6 @@ interface UseReleasesResult {
   releases: Release[];
   loading: boolean;
   error: string | null;
-  hasMore: boolean;
   loadMore: () => void;
   retry: () => void;
 }
@@ -16,7 +15,6 @@ export function useReleases(): UseReleasesResult {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
 
   function load(targetPage: number, append: boolean) {
     setLoading(true);
@@ -24,7 +22,6 @@ export function useReleases(): UseReleasesResult {
     fetchReleases(targetPage)
       .then((data) => {
         setReleases((prev) => (append ? [...prev, ...data] : data));
-        if (data.length === 0) setHasMore(false);
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : "Unknown error");
@@ -46,5 +43,5 @@ export function useReleases(): UseReleasesResult {
     load(page, page > 0);
   }
 
-  return { releases, loading, error, hasMore, loadMore, retry };
+  return { releases, loading, error, loadMore, retry };
 }

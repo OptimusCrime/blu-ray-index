@@ -3,7 +3,7 @@ import { ReleaseCard } from "./components/ReleaseCard";
 import "./App.css";
 
 export default function App() {
-  const { releases, loading, error, hasMore, loadMore, retry } = useReleases();
+  const { releases, loading, error, loadMore, retry } = useReleases();
 
   return (
     <div className="app">
@@ -35,16 +35,12 @@ export default function App() {
           </div>
         )}
 
-        {!loading && hasMore && releases.length > 0 && (
+        {!loading && !error && releases.length > 0 && (
           <div className="load-more-container">
             <button className="load-more-btn" onClick={loadMore}>
               Load more
             </button>
           </div>
-        )}
-
-        {!hasMore && releases.length > 0 && (
-          <p className="end-of-list">No more releases.</p>
         )}
       </main>
     </div>

@@ -24,7 +24,7 @@ var (
 	pipeYearRe         = regexp.MustCompile(`^(\d{4})(?:-(\d{4}))?$`)
 	pipeRuntimeRe      = regexp.MustCompile(`^\d+ min$`)
 	pipeRatingRe       = regexp.MustCompile(`(?i)^(?:not rated|unrated|rated\s+\S+)$`)
-	pipeDateRe         = regexp.MustCompile(`^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d`)
+	pipeDateRe         = regexp.MustCompile(`^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d`)
 	titleSuffixRe      = regexp.MustCompile(`(?i)\s+Blu-ray\s*$`)
 	yearFallbackRe     = regexp.MustCompile(`\b(\d{4})\b`)
 )
