@@ -3,14 +3,13 @@ on:
   push:
     branches:
       - main
-  pull_request:
 
 jobs:
-  build:
+  build-backend:
     runs-on: ubuntu-latest
     steps:
       - name: Git Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build and publish go to Registry
         uses: elgohr/Publish-Docker-Github-Action@v5
