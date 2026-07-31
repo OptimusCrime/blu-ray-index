@@ -3,13 +3,15 @@ package bluray
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/RomainMichau/CycleTLS/cycletls"
+	"github.com/RomainMichau/cloudscraper_go/cloudscraper"
 	"golang.org/x/net/html/charset"
 )
 
@@ -17,6 +19,15 @@ const (
 	baseListingURL = "https://www.blu-ray.com/movies/movies.php?show=newreleases&sortby=releasetimestamp"
 	userAgent      = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 	listingCookie  = "listlayout_7=full"
+	requestTimeout = 30
+
+	// blu-ray.com's bot detection intermittently blocks a request based on
+	// its TLS fingerprint: sometimes a fully empty response, sometimes a
+	// small "error42" body, both with a 200 status. cloudscraper picks a
+	// random browser/JA3 profile per Init, so retrying with a fresh client
+	// gives later attempts a real chance of getting an accepted fingerprint.
+	maxFetchAttempts = 8
+	retryBaseDelay   = 500 * time.Millisecond
 )
 
 var (
@@ -29,46 +40,81 @@ var (
 	yearFallbackRe     = regexp.MustCompile(`\b(\d{4})\b`)
 )
 
-type scraper struct {
-	client *http.Client
-}
+type scraper struct{}
 
 func newScraper() *scraper {
-	return &scraper{
-		client: &http.Client{Timeout: 30 * time.Second},
-	}
+	return &scraper{}
 }
 
 func (s *scraper) get(ctx context.Context, url string) (*goquery.Document, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Cookie", listingCookie)
+	var lastErr error
+	for attempt := 1; attempt <= maxFetchAttempts; attempt++ {
+		doc, err := s.getOnce(url)
+		if err == nil {
+			return doc, nil
+		}
+		lastErr = err
+		slog.Warn("bluray: fetch attempt failed", "url", url, "attempt", attempt, "err", err)
 
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("bluray: GET %s: %w", url, err)
+		if attempt == maxFetchAttempts {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(retryBaseDelay * time.Duration(attempt)):
+		}
 	}
-	defer resp.Body.Close()
+	return nil, fmt.Errorf("bluray: GET %s: giving up after %d attempts: %w", url, maxFetchAttempts, lastErr)
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bluray: GET %s: status %d", url, resp.StatusCode)
+func (s *scraper) getOnce(url string) (*goquery.Document, error) {
+	// A fresh client picks a new random browser/JA3 profile, so each retry
+	// gets an independent chance of passing the upstream bot detection.
+	client, err := cloudscraper.Init(false, false)
+	if err != nil {
+		return nil, fmt.Errorf("init client: %w", err)
 	}
 
-	contentType := resp.Header.Get("Content-Type")
-	utf8Reader, err := charset.NewReader(resp.Body, contentType)
+	options := cycletls.Options{
+		Headers: map[string]string{
+			"accept-language": "en-US,en;q=0.9",
+			"cookie":          listingCookie,
+		},
+		Timeout: requestTimeout,
+	}
+
+	resp, err := client.Do(url, options, "GET")
 	if err != nil {
-		return nil, fmt.Errorf("bluray: charset %s: %w", url, err)
+		return nil, fmt.Errorf("GET: %w", err)
+	}
+
+	if resp.Status != 200 {
+		return nil, fmt.Errorf("status %d", resp.Status)
+	}
+
+	if !looksLikeListingPage(resp.Body) {
+		return nil, fmt.Errorf("blocked response (%d bytes)", len(resp.Body))
+	}
+
+	contentType := resp.Headers["Content-Type"]
+	utf8Reader, err := charset.NewReader(strings.NewReader(resp.Body), contentType)
+	if err != nil {
+		return nil, fmt.Errorf("charset: %w", err)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(utf8Reader)
 	if err != nil {
-		return nil, fmt.Errorf("bluray: parse %s: %w", url, err)
+		return nil, fmt.Errorf("parse: %w", err)
 	}
 	return doc, nil
+}
+
+// looksLikeListingPage guards against blu-ray.com's bot detection, which
+// returns a 200 status with either an empty body or a short "error42" body
+// instead of a real page when a request is blocked.
+func looksLikeListingPage(body string) bool {
+	return strings.Contains(strings.ToLower(body), "<html")
 }
 
 // fetchListingPage scrapes all release entries from the given page of the new
